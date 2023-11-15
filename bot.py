@@ -14,12 +14,18 @@ class YoutubeDiscordPlayer:
         self.is_stopping = False
         self.skip_song = False
         
-    def add(self, url, context, channel, file):
+    def _can_play(self, queue_item) -> bool:
+        if "channel" in queue_item and "download_data" in queue_item and "file" in queue_item["download_data"]:
+            return True
+        
+        return False
+        
+    def add(self, url, context, channel, download_data):
         self.queue.append({
             "url": url,
             "context": context,
             "channel": channel,
-            "file": file
+            "download_data": download_data
         })
         
     def skip(self):
@@ -31,10 +37,8 @@ class YoutubeDiscordPlayer:
         
         while len(self.queue) != 0:            
             next_video = self.queue[0]
-            if "channel" not in next_video and "file" not in next_video:
-                continue
-            
-            await self.playAndPop(next_video)
+            if self._can_play(next_video):
+                await self.playAndPop(next_video)
         
         self.is_playing = False
         
@@ -47,12 +51,14 @@ class YoutubeDiscordPlayer:
         
     async def playAndPop(self, play_info):
         # Safe guard just incase something happens to the file
-        if not os.path.exists(play_info["file"]):
-            await download(play_info["url"])
+        file = play_info["download_data"]["file"]
+        if not os.path.exists(file):
+            download_data = await download(play_info["url"])
+            file = download_data["file"]
         
         # Channel connect and Source creation
         vc = await play_info["channel"].connect()
-        source = discord.FFmpegPCMAudio(play_info["file"])
+        source = discord.FFmpegPCMAudio(file)
         
         # PLAY
         try:
@@ -69,19 +75,24 @@ class YoutubeDiscordPlayer:
                 self.queue.pop(0)
             
             # Only remove files that aren't in the queue for future use
-            files = [item["file"] for item in self.queue]
-            if not play_info["file"] in files:
-                os.remove(play_info["file"])
+            files = [item["download_data"]["file"] for item in self.queue if self._can_play(item)]
+            if not file in files:
+                os.remove(file)
             
             await vc.disconnect()
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
+ENV = os.getenv("ENV", "dev")
 
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="!steve ", intents=intents, activity=discord.Game("some music!"))
+command_prefix = "!steve "
+if ENV == "dev":
+    command_prefix = "!dsteve "
+
+bot = commands.Bot(command_prefix=command_prefix, intents=intents, activity=discord.Game("some music!"))
 player = YoutubeDiscordPlayer(bot)
 
 @bot.event
@@ -90,37 +101,28 @@ async def on_ready():
     
 
 @bot.command(name="play")
-async def play(context, url: str):
+async def play(context, url: str, *, channel_name: commands.clean_content = None):
     try:
-        channel = context.author.voice.channel
+        if channel_name == None:
+            channel = context.author.voice.channel
+        else:
+            channels = context.guild.channels
+            channel = next(c for c in channels if c.name == channel_name and isinstance(c, discord.VoiceChannel))
     except:
-        await context.send("you are not currently in a voice channel")
+        embed = discord.Embed(title="Failed to add to queue")
+        embed.set_author(name=context.author.display_name, icon_url=context.author.display_avatar.url)
+        embed.add_field(name="Failure", value="Either join a channel or specify one after the url...")
+        await context.send(embed=embed)
         return
     
-    file = await download(url)
+    download_data = await download(url)
     
-    await context.send(f"Adding video: {url} to the queue")
+    embed = discord.Embed(title="Adding to queue")
+    embed.set_author(name=context.author.display_name, icon_url=context.author.display_avatar.url)
+    embed.add_field(name=download_data["title"], value=url)
+    await context.send(embed=embed)
     
-    player.add(url, context, channel, file)
-    if not player.is_playing:
-        await player.start()
-        
-@bot.command(name="playInChannel")
-async def play_in_channel(context, url: str, *, channel_name: commands.clean_content):
-    try:
-        print(channel_name)
-        channels = context.guild.channels
-        print([c.name for c in channels])
-        channel = next(c for c in channels if c.name == channel_name and isinstance(c, discord.VoiceChannel))
-    except:
-        await context.send(f"Could not find channel {channel_name}")
-        return
-    
-    file = await download(url)
-    
-    await context.send(f"Adding video: {url} to the queue")
-    
-    player.add(url, context, channel, file)
+    player.add(url, context, channel, download_data)
     if not player.is_playing:
         await player.start()
         
@@ -136,8 +138,16 @@ async def skip(context):
         
 @bot.command(name="queue")
 async def queue(context):
-    urls = [item["url"] for item in player.queue]
-    await context.send(f"Current Queue: {json.dumps(urls, indent=4)}")
+    # urls = [item["url"] for item in player.queue]
+    embed = discord.Embed(title="Queue")
+    
+    if len(player.queue) == 0:
+        embed.add_field(name="Empty", value="No items in queue")
+    else:
+        for item in player.queue:
+            embed.add_field(name=item["download_data"]["title"], value=f"{item["url"]} requested by {item["context"].author.display_name}", inline=False)
+    
+    await context.send(embed=embed)
 
 if __name__ == "__main__":
     bot.run(TOKEN)

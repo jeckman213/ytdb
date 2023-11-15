@@ -80,74 +80,112 @@ class YoutubeDiscordPlayer:
                 os.remove(file)
             
             await vc.disconnect()
+            
+class YoutubeCommands(commands.Cog):
+    def __init__(self, bot: commands.Bot, player: YoutubeDiscordPlayer, environment: str):
+        self.bot = bot
+        self.player = player
+        self.environment = environment
 
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
-ENV = os.getenv("ENV", "dev")
-
-intents = discord.Intents.default()
-intents.message_content = True
-
-command_prefix = "!steve "
-if ENV == "dev":
-    command_prefix = "!dsteve "
-
-bot = commands.Bot(command_prefix=command_prefix, intents=intents, activity=discord.Game("some music!"))
-player = YoutubeDiscordPlayer(bot)
-
-@bot.event
-async def on_ready():
-    print(f'{bot.user} has connected to Discord!')
-    
-
-@bot.command(name="play")
-async def play(context, url: str, *, channel_name: commands.clean_content = None):
-    try:
-        if channel_name == None:
-            channel = context.author.voice.channel
-        else:
-            channels = context.guild.channels
-            channel = next(c for c in channels if c.name == channel_name and isinstance(c, discord.VoiceChannel))
-    except:
-        embed = discord.Embed(title="Failed to add to queue")
+    @commands.command(
+        name="play", 
+        help="Play Youtube audio through url and optional target channel",
+        usage="!steve play <url> <target_channel?>"
+    )
+    async def play(self, context, url: str, *, channel_name: commands.clean_content = None):
+        try:
+            if channel_name == None:
+                channel = context.author.voice.channel
+            else:
+                channels = context.guild.channels
+                channel = next(c for c in channels if c.name == channel_name and isinstance(c, discord.VoiceChannel))
+        except:
+            embed = discord.Embed(title="Failed to add to queue")
+            embed.set_author(name=context.author.display_name, icon_url=context.author.display_avatar.url)
+            embed.add_field(name="Failure", value="Either join a channel or specify one after the url...")
+            await context.send(embed=embed)
+            return
+        
+        download_data = await download(url)
+        
+        embed = discord.Embed(title="Adding to queue")
         embed.set_author(name=context.author.display_name, icon_url=context.author.display_avatar.url)
-        embed.add_field(name="Failure", value="Either join a channel or specify one after the url...")
+        embed.add_field(name=download_data["title"], value=url)
         await context.send(embed=embed)
-        return
-    
-    download_data = await download(url)
-    
-    embed = discord.Embed(title="Adding to queue")
-    embed.set_author(name=context.author.display_name, icon_url=context.author.display_avatar.url)
-    embed.add_field(name=download_data["title"], value=url)
-    await context.send(embed=embed)
-    
-    player.add(url, context, channel, download_data)
-    if not player.is_playing:
-        await player.start()
         
-@bot.command(name="stop")
-async def stop(context):
-    await context.send("Stopping...")
-    await player.stop()
+        player.add(url, context, channel, download_data)
+        if not player.is_playing:
+            await player.start()
+            
+    @commands.command(name="stop", help="Stop steve completely")
+    async def stop(self, context):
+        await context.send("Stopping...")
+        await player.stop()
 
-@bot.command(name="skip")
-async def skip(context):
-    await context.send("Skipping...")
-    player.skip()
+    @commands.command(name="skip", help="Skips current audio")
+    async def skip(self, context):
+        await context.send("Skipping...")
+        player.skip()
+            
+    @commands.command(name="queue", help="Shows current youtube queue")
+    async def queue(self, context):        
+        if len(player.queue) == 0:
+            embed = discord.Embed(title="Queue")
+            embed.add_field(name="Empty", value="No items in queue")
+            await context.send(embed=embed)
+        else:
+            for index, item in enumerate(player.queue):
+                embed = discord.Embed(title=f"Queue Item {index}")
+                embed.set_author(
+                    name=context.author.display_name, 
+                    icon_url=context.author.display_avatar.url
+                )
+                embed.add_field(
+                    name="Title",
+                    value=item["download_data"]["title"],
+                    inline=False
+                )
+                embed.add_field(
+                    name="Url", 
+                    value=f"{item["url"]}",
+                    inline=False
+                )
+                embed.add_field(
+                    name="Voice Channel",
+                    value=f"`{item["channel"].name}`"
+                )
         
-@bot.command(name="queue")
-async def queue(context):
-    # urls = [item["url"] for item in player.queue]
-    embed = discord.Embed(title="Queue")
-    
-    if len(player.queue) == 0:
-        embed.add_field(name="Empty", value="No items in queue")
-    else:
-        for item in player.queue:
-            embed.add_field(name=item["download_data"]["title"], value=f"{item["url"]} requested by {item["context"].author.display_name}", inline=False)
-    
-    await context.send(embed=embed)
+                await context.send(embed=embed)
 
 if __name__ == "__main__":
+    # Get envs
+    load_dotenv()
+    TOKEN = os.getenv("DISCORD_TOKEN")
+    ENV = os.getenv("ENV", "dev")
+
+    # Create Intents for bot
+    intents = discord.Intents.default()
+    intents.message_content = True
+
+    # Determine command prefix based on ENV
+    command_prefix = "!steve "
+    if ENV == "dev":
+        command_prefix = "!dsteve "
+
+    # Create bot
+    bot = commands.Bot(command_prefix=command_prefix, intents=intents, activity=discord.Game("some music!"))
+    
+    # Create YoutubeDiscordPlayer
+    player = YoutubeDiscordPlayer(bot)
+    
+    # Create cog(s)
+    cog = YoutubeCommands(bot, player, ENV)
+    
+    # Add cog(s)
+    asyncio.run(bot.add_cog(cog))
+    
+    @bot.event
+    async def on_ready():
+        print(f'{bot.user} has connected to Discord!')
+        
     bot.run(TOKEN)

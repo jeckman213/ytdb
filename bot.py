@@ -120,10 +120,10 @@ class YoutubeCommands(commands.Cog):
     """
 
     def __init__(
-        self, bot: commands.Bot, player: YoutubeDiscordPlayer, environment: str
+        self, bot: commands.Bot, environment: str
     ):
         self.bot = bot
-        self.player = player
+        self.players = {}
         self.environment = environment
 
     @commands.command(
@@ -146,6 +146,8 @@ class YoutubeCommands(commands.Cog):
             channel_name (commands.clean_content, optional):
                 The name of the target channel to play audio in. Defaults to None.
         """
+        guild_id = context.author.guild.id
+        
         try:
             if channel_name is None:
                 channel = context.author.voice.channel
@@ -170,7 +172,7 @@ class YoutubeCommands(commands.Cog):
             await context.send(embed=embed)
             return
 
-        download_data = await download(url)
+        download_data = await download(url, str(guild_id))
 
         embed = discord.Embed(title="Adding to queue")
         embed.set_author(
@@ -179,9 +181,12 @@ class YoutubeCommands(commands.Cog):
         embed.add_field(name=download_data["title"], value=download_data["url"])
         await context.send(embed=embed)
 
-        self.player.add(download_data["url"], context, channel, download_data)
-        if not self.player.is_playing:
-            await self.player.start()
+        if guild_id not in self.players:
+            self.players[guild_id] = YoutubeDiscordPlayer()
+
+        self.players[guild_id].add(download_data["url"], context, channel, download_data)
+        if not self.players[guild_id].is_playing:
+            await self.players[guild_id].start()
 
     @commands.command(name="stop", help="Stops steve completely and clears queue")
     async def stop(self, context):
@@ -196,7 +201,9 @@ class YoutubeCommands(commands.Cog):
         )
         await context.send(embed=embed)
 
-        await self.player.stop()
+        guild_id = context.author.guild.id
+        if guild_id in self.players:
+            await self.players[guild_id].stop()
 
     @commands.command(name="skip", help="Skips current audio")
     async def skip(self, context):
@@ -205,11 +212,13 @@ class YoutubeCommands(commands.Cog):
         Args:
             context (_type_): Discord context
         """
-        if len(self.player.queue) == 0:
+        guild_id = context.author.guild.id
+        
+        if guild_id not in self.players or len(self.players[guild_id].queue) == 0:
             await context.send("Nothing to skip :D")
             return
 
-        current = self.player.queue[0]
+        current = self.players[guild_id].queue[0]
         context = current["context"]
         download_data = current["download_data"]
         url = current["url"]
@@ -221,7 +230,7 @@ class YoutubeCommands(commands.Cog):
         embed.add_field(name=download_data["title"], value=url)
         await context.send(embed=embed)
 
-        self.player.skip()
+        self.players[guild_id].skip()
 
     @commands.command(name="queue", help="Shows current youtube queue")
     async def queue(self, context: commands.Context):
@@ -230,12 +239,14 @@ class YoutubeCommands(commands.Cog):
         Args:
             context (_type_): Discord context
         """
-        if len(self.player.queue) == 0:
+        guild_id = context.author.guild.id
+        
+        if guild_id not in self.players or len(self.players[guild_id].queue) == 0:
             embed = discord.Embed(title="Queue")
             embed.add_field(name="Empty", value="No items in queue")
             await context.send(embed=embed)
         else:
-            for index, item in enumerate(self.player.queue):
+            for index, item in enumerate(self.players[guild_id].queue):
                 embed = discord.Embed(title=f"Queue Item {index}")
                 embed.set_author(
                     name=context.author.display_name,
@@ -273,12 +284,8 @@ if __name__ == "__main__":
         intents=intents,
         activity=discord.Game("some music!"),
     )
-
-    # Create YoutubeDiscordPlayer
-    main_player = YoutubeDiscordPlayer()
-
     # Create cog(s)
-    cog = YoutubeCommands(main_bot, main_player, ENV)
+    cog = YoutubeCommands(main_bot, ENV)
 
     # Add cog(s)
     asyncio.run(main_bot.add_cog(cog))

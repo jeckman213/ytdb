@@ -4,7 +4,7 @@ import yt_dlp as youtube_dl
 import os
 
 
-async def download(url: str) -> str:
+async def download(url: str, tag: str = "") -> str:
     """Download from url or search string????
     
     Arguments:
@@ -13,7 +13,7 @@ async def download(url: str) -> str:
     youtube_dl.utils.bug_reports_message = lambda: ""
     ydl_opts = {
         "format": "bestaudio/best",
-        "outtmpl": "%(extractor)s-%(id)s-%(title)s.%(ext)s",
+        "outtmpl": "{tag}-%(extractor)s-%(id)s-%(title)s.%(ext)s".format(tag=tag),
         "restrictfilenames": True,
         "noplaylist": True,
         "nocheckcertificate": True,

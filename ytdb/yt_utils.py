@@ -1,15 +1,19 @@
+"""Youtube Utils
+    - Downloads youtube video by url or search???
+
+"""
 import asyncio
-import json
 import yt_dlp as youtube_dl
-import os
 
 
-async def download(url: str, tag: str = "") -> str:
+async def download(url_or_string: str, tag: str = "unknown") -> str:
     """Download from url or search string????
-    
+
     Arguments:
-        url (str): The url of the youtube video or search???
+        url_or_string (str): The url of the youtube video or search???
     """
+
+    # Setup options
     youtube_dl.utils.bug_reports_message = lambda: ""
     ydl_opts = {
         "format": "bestaudio/best",
@@ -26,21 +30,24 @@ async def download(url: str, tag: str = "") -> str:
     }
     ytdl = youtube_dl.YoutubeDL(ydl_opts)
 
+    # Go and download based off of url_or_string in background
     loop = asyncio.get_event_loop()
     data = await loop.run_in_executor(
-        None, lambda: ytdl.extract_info(url, download=True)
+        None, lambda: ytdl.extract_info(url_or_string, download=True)
     )
 
     if "entries" in data:
         # take first item from a playlist
         data = data["entries"][0]
 
-    # f = open("log.json", "a")
-    # f.write(json.dumps(data, indent=4))
-    # f.close()
-
+    # Create file and return information
     filename = ytdl.prepare_filename(data)
-    return {"id": data["id"], "file": filename, "title": data["title"], "url": data["webpage_url"]}
+    return {
+        "id": data["id"],
+        "file": filename,
+        "title": data["title"],
+        "url": data["webpage_url"],
+    }
 
 
 if __name__ == "__main__":

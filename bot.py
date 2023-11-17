@@ -3,35 +3,41 @@
 import os
 
 import asyncio
+import json
 from dotenv import load_dotenv
 import discord
 from discord.ext import commands
 from ytdb.yt_player import YoutubeCommands
 
-
 def main():
     """Main"""
+    print("Starting YTDB...")
+    
     # Get envs
+    print("Loading dotenv")
     load_dotenv()
     token = os.getenv("DISCORD_TOKEN")
+
     env = os.getenv("ENV", "dev")
+    print("environment: {env}".format(env=env))
+
+    command_prefix = json.loads(os.getenv("COMMAND_PREFIX", '["!steve "]'))
+    print("command_prefix(es): {command_prefix}".format(command_prefix=command_prefix))
 
     # Create Intents for bot
+    print("Creating intents...")
     intents = discord.Intents.default()
     intents.message_content = True
 
-    # Determine command prefix based on ENV
-    command_prefix = "!steve "
-    if env == "dev":
-        command_prefix = "!dsteve "
-
     # Create bot
+    print("Creating main bot...")
     main_bot = commands.Bot(
         command_prefix=command_prefix,
         intents=intents,
         activity=discord.Game("some music!"),
     )
     # Create cog(s)
+    print("Creating Youtube Cog...")
     cog = YoutubeCommands(main_bot, env)
 
     # Add cog(s)

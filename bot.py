@@ -9,10 +9,11 @@ import discord
 from discord.ext import commands
 from ytdb.yt_player import YoutubeCommands
 
+
 def main():
     """Main"""
     print("Starting YTDB...")
-    
+
     # Get envs
     print("Loading dotenv")
     load_dotenv()
@@ -36,18 +37,13 @@ def main():
         intents=intents,
         activity=discord.Game("some music!"),
     )
-    # Create cog(s)
-    print("Creating Youtube Cog...")
-    cog = YoutubeCommands(main_bot, env)
-
-    # Add cog(s)
-    asyncio.run(main_bot.add_cog(cog))
 
     @main_bot.event
     async def on_ready():
         """On Ready for bot"""
         print(f"{main_bot.user} has connected to Discord!")
 
+    asyncio.run(main_bot.load_extension("ytdb.yt_player"))
     main_bot.run(token)
 
 

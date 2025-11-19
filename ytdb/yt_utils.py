@@ -5,6 +5,40 @@
 import asyncio
 import yt_dlp as youtube_dl
 
+# async def download_audio_from_url(url, output_path='.', audio_format='mp3'):
+#     """
+#     Downloads audio from a given URL using yt-dlp.
+
+#     Args:
+#         url (str): The URL of the video or audio source.
+#         output_path (str): The directory to save the downloaded audio.
+#         audio_format (str): The desired audio format (e.g., 'mp3', 'm4a', 'wav').
+#     """
+#     filename = f'{output_path}/{uuid.uuid4().hex()}'  # Generate a unique filename
+#     ydl_opts = {
+#         'format': 'bestaudio/best',  # Select the best audio format
+#         'postprocessors': [{
+#             'key': 'FFmpegExtractAudio',
+#             'preferredcodec': audio_format,
+#             'preferredquality': '192',  # Set preferred audio quality
+#         }],
+#         'outtmpl': filename,  # Output template
+#         'noplaylist': True,  # Don't download entire playlists
+#     }
+
+#     try:
+#         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+#             ydl.download([url])
+#             ydl.extract_info(url, download=False)
+#         print(f"Audio downloaded successfully to {output_path} in {audio_format} format.")
+#         return {
+#         "id": data["id"],
+#         "file": filename,
+#         "title": data["title"],
+#         "url": data["webpage_url"],
+#     }
+#     except Exception as e:
+#         print(f"An error occurred: {e}")
 
 async def download(url_or_string: str, tag: str = "unknown") -> str:
     """Download from url or search string????
@@ -14,19 +48,17 @@ async def download(url_or_string: str, tag: str = "unknown") -> str:
     """
 
     # Setup options
-    youtube_dl.utils.bug_reports_message = lambda: ""
+    # youtube_dl.utils.bug_reports_message = lambda: ""
     ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": "{tag}-%(extractor)s-%(id)s-%(title)s.%(ext)s".format(tag=tag),
-        "restrictfilenames": True,
-        "noplaylist": True,
-        "nocheckcertificate": True,
-        "ignoreerrors": False,
-        "logtostderr": False,
-        "quiet": True,
-        "no_warnings": True,
-        "default_search": "auto",
-        "source_address": "0.0.0.0",
+        'format': 'bestaudio/best',  # Select the best audio format
+        # 'postprocessors': [{
+        #     'key': 'FFmpegExtractAudio',
+        #     'preferredcodec': 'mp3',
+        #     'preferredquality': '192',  # Set preferred audio quality
+        # }],
+        'quiet': True,
+        'outtmpl': '%(title)s.%(ext)s',  # Output template
+        'noplaylist': True,  # Don't download entire playlists
     }
     ytdl = youtube_dl.YoutubeDL(ydl_opts)
 

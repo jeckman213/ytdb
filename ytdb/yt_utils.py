@@ -57,6 +57,7 @@ async def download(url_or_string: str, tag: str = "unknown") -> str:
         #     'preferredquality': '192',  # Set preferred audio quality
         # }],
         'quiet': True,
+        'cookies': 'cookies.txt',
         'outtmpl': '%(title)s.%(ext)s',  # Output template
         'noplaylist': True,  # Don't download entire playlists
     }

@@ -29,6 +29,16 @@ def main():
     print("Creating intents...")
     intents = discord.Intents.default()
     intents.message_content = True
+    
+    # Create cookies file if it doesn't exist
+    if not os.path.exists("cookies.txt"):
+        if os.getenv("cookies_data") is None:
+            print("Error: cookies.txt file not found and cookies_data env variable not set. Will try to run anyway...")
+        else:
+            print("Creating cookies.txt file...")
+            with open("cookies.txt", "w") as f:
+                f.write(os.getenv("cookies_data"))
+        
 
     # Create bot
     print("Creating main bot...")

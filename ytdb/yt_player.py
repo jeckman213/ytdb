@@ -85,11 +85,11 @@ class YoutubeDiscordPlayer:
 
         # Channel connect and Source creation
         vc = await play_info["channel"].connect()
-        source = discord.FFmpegPCMAudio(file)
 
         # PLAY
         try:
-            vc.play(source)
+            source = discord.FFmpegPCMAudio(file)
+            vc.play(source, after=lambda e: print(f"Player error: {e}") if e else None)
             while vc.is_playing():
                 if self.skip_song:
                     vc.stop()

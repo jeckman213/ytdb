@@ -28,6 +28,8 @@ def main():
     # Create Intents for bot
     print("Creating intents...")
     intents = discord.Intents.default()
+    intents.guilds = True
+    intents.voice_states = True
     intents.message_content = True
     
     # Create cookies file if it doesn't exist
